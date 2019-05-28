@@ -9,6 +9,12 @@ yum install python-pip
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
 yum install docker
 ln -s /usr/libexec/docker/docker-proxy-current /usr/bin/docker-proxy
+
+sudo groupadd docker
+sudo usermod -aG docker $USER
+sudo systemctl enable docker
+chmod 777 /var/run/docker.sock
+
 docker volume create portainer_data
 docker run -d -p 9000:9000 --name portainer -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer
    
