@@ -1,0 +1,155 @@
+plugins {
+    id "idea"
+    id "java"
+    id "org.springframework.boot" version "2.2.6.RELEASE"
+    id "io.spring.dependency-management"
+    id "org.sonarqube"
+    id "jacoco"
+    id "maven"
+    id "maven-publish"
+    id 'com.github.spotbugs' version "4.4.4"
+    id "groovy"
+    id 'com.adarshr.test-logger' version '2.0.0'
+    id "com.diffplug.spotless" version "5.1.0"
+}
+
+apply from: "${rootDir}/radar/radar.gradle"
+
+sourceCompatibility = '11'
+targetCompatibility = '11'
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenLocal()
+    maven { url = repositoryNexus }
+    mavenCentral()
+}
+
+test {
+    useJUnitPlatform()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.amqp:spring-rabbit:2.2.7.RELEASE'
+
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker:1.5.0'
+    implementation 'io.github.resilience4j:resilience4j-timelimiter:1.5.0'
+    implementation 'io.github.resilience4j:resilience4j-retry:1.5.0'
+    implementation 'io.github.resilience4j:resilience4j-spring-boot2:1.5.0'
+
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    implementation "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+
+    implementation 'com.oracle.ojdbc:ojdbc10:19.3.0.0'
+
+      //Test
+    testImplementation "org.codehaus.janino:janino:3.1.1"
+    testImplementation('org.springframework.boot:spring-boot-starter-test') {
+        exclude group: 'junit', module: 'junit'
+    }
+    testImplementation "com.github.tomakehurst:wiremock-jre8:2.26.3"
+    testImplementation 'com.h2database:h2'
+    testImplementation "uol.ps.turks-caicos.mockserver-block:mock-server-lib:0.0.44"
+
+    testImplementation "org.codehaus.groovy:groovy-all:2.5.8"
+    testImplementation platform("org.spockframework:spock-bom:2.0-M1-groovy-2.5")
+    testImplementation "org.spockframework:spock-core"
+    testImplementation "org.spockframework:spock-spring"
+    testImplementation "org.testcontainers:spock:1.14.3"
+    testImplementation "org.testcontainers:rabbitmq:1.14.3"
+    testRuntimeOnly 'com.h2database:h2'
+
+    compileOnly 'org.projectlombok:lombok:1.18.8'
+    testCompileOnly 'org.projectlombok:lombok:1.18.8'
+    annotationProcessor 'org.projectlombok:lombok:1.18.8'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.8'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+
+task printVersion {
+    println version
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled true
+        html.enabled true
+    }
+}
+
+plugins.withType(JacocoPlugin) {
+    tasks["test"].finalizedBy 'jacocoTestReport'
+}
+
+sonarqube {
+    properties {
+        property 'sonar.host.url', project.sonarUrl
+        property 'sonar.projectKey', project.projectName
+        property "sonar.projectName", project.description
+        property "sonar.sourceEncoding", "UTF-8"
+        property 'sonar.verbose', 'true'
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifact("build/libs/${project.projectName}-${project.version}.jar") {
+                extension 'jar'
+            }
+        }
+    }
+    repositories {
+        maven {
+            name 'nexus'
+            url project.nexusUrlRelease
+            credentials {
+                username project.nexusUser
+                password project.nexusPass
+            }
+        }
+    }
+}
+
+jar {
+    enabled = true
+}
+
+bootJar {
+    enabled = false
+}
+
+testlogger {
+    theme 'plain'
+    showExceptions false
+    showStackTraces false
+    showFullStackTraces false
+    showCauses true
+    slowThreshold 2000
+    showSummary true
+    showSimpleNames false
+    showPassed true
+    showSkipped true
+    showFailed true
+    showStandardStreams false
+    showPassedStandardStreams true
+    showSkippedStandardStreams true
+    showFailedStandardStreams true
+}
+

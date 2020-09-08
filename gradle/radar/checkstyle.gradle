@@ -1,0 +1,8 @@
+apply plugin: 'checkstyle'
+
+checkstyle {
+    ignoreFailures false
+    configFile file("${project.rootDir}/radar/checkstyle/checkstyle.xml")
+}
+
+task checkstyle(dependsOn: [checkstyleMain, checkstyleTest])

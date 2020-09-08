@@ -1,0 +1,129 @@
+#!groovy
+
+def envSonar = "sonar-env"
+
+pipeline {
+    agent { label 'linux' }
+
+    tools {
+        maven 'Maven 3.5.X'
+        jdk 'JDK 1.8'
+    }
+
+    options {
+      disableConcurrentBuilds()
+      buildDiscarder(logRotator(numToKeepStr: '5', artifactNumToKeepStr: '2'))
+  	}
+
+    environment {
+      def NEXUS_URL  = "http://localhost:8081/nexus/content/repositories/snapshots"
+      def NEXUS_REPO = "snapshots"
+      def LOCAL_REPO = "-Dmaven.repo.local=${env.WORKSPACE}/.m2/repository"
+    }
+    
+    parameters {
+        booleanParam(name: 'CLEAR_WORKSPACE', defaultValue: true)
+        booleanParam(name: 'DEPLOY', defaultValue: false)
+    }
+
+  stages {
+    stage('Initialize') {
+      steps {
+        checkout scm
+        script {
+          echo "PATH = ${env.PATH}"
+          echo "BRANCH = ${env.BRANCH_NAME}"
+          echo "REVISION = ${env.GIT_COMMIT}"
+          echo "WORKSPACE = ${env.WORKSPACE}"
+          echo "CURRENT VERSION = ${release.getCurrentVersion()}"
+          upgradeVersion()
+        }
+      }
+    }
+
+    stage('Clean & Format') {
+      steps {
+        sh 'make clean'
+        sh 'make format'
+        commit("Formatacao do Codigo")
+      }
+    }
+
+    stage('Build') {
+      steps {
+        sh 'make build'
+      }
+    }
+
+    stage('Test') {
+      steps {
+        script {
+          sh 'make test'
+        }
+      }
+      post {
+        always {
+          junit allowEmptyResults: true, keepLongStdio: true, testResults: '**/build/test-results/test/TEST-*.xml'
+        }
+      }
+    }
+
+    stage('SonarQube') {
+      steps {
+        script {
+          withSonarQubeEnv(envSonar) {
+            script {
+              sh "make quality GIT_BRANCH=${env.BRANCH_NAME}"
+            }
+          }
+          timeout(time: 3, unit: 'MINUTES') {
+            def qg = waitForQualityGate()
+            if (qg.status == 'OK') {
+              currentBuild.result = 'SUCCESS'
+            } else {
+              currentBuild.result = 'UNSTABLE'
+              error "Pipeline aborted due to quality gate failure: ${qg.status}"
+            }
+          }
+        }
+      }
+      post {
+        failure {
+          error "Quality Gate Fail"
+        }
+      }
+    }
+
+    stage('Release') {
+      when {
+        branch 'master'
+      }
+      steps {
+        script {
+          commit("Atualização de versão: ${release.getCurrentVersion()}")
+          sh 'make publish'
+        }
+      }
+    }
+  }
+
+}
+
+def deploy(environment) {
+
+}
+
+def bitbucket(){
+  currentBuild.result = currentBuild.result ?: 'SUCCESS'
+  notifyBitbucket()
+}
+
+def commit(msg) {
+  withCredentials([usernameColonPassword(credentialsId: 'git', variable: 'token')]) {
+    sh "git config remote.origin.url https://${token}@github.com/*.git"
+    sh 'git add .'
+    sh "git diff-index --quiet HEAD || git commit -m \"CI: ${msg}\" "
+    sh "git pull "
+    sh "git push origin HEAD:${env.BRANCH_NAME} "
+  }
+}

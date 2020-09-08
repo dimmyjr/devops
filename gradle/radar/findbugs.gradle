@@ -1,0 +1,33 @@
+apply plugin: 'com.github.spotbugs'
+
+spotbugs {
+    ignoreFailures = true
+    showStackTraces = true
+    showProgress = true
+    effort = 'max'
+    reportLevel = "high"
+
+}
+
+spotbugsMain {
+    reports {
+        text {
+            enabled = true
+        }
+    }
+}
+
+task spotbugsReport {
+    doLast {
+        println()
+        file("build/reports/spotbugs/main.txt").readLines().forEach {
+            println(it)
+        }
+
+        if (!file("build/reports/spotbugs/main.txt").readLines().isEmpty()) {
+            throw new GradleException("SpotBugs violations were found")
+        }
+    }
+}
+
+spotbugsMain.finalizedBy spotbugsReport

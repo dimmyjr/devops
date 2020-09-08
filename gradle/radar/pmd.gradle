@@ -1,0 +1,12 @@
+apply plugin: "pmd"
+
+def configDir = "${project.rootDir}/radar/pmd"
+def reportsOut = "${project.buildDir}/reports/pmd"
+
+
+pmd {
+    consoleOutput = true
+    ignoreFailures = false
+    ruleSets = []
+    ruleSetFiles = files("${configDir}/pmd-settings.xml")
+}

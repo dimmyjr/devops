@@ -1,0 +1,4 @@
+apply from: "${rootDir}/radar/formatter.gradle"
+apply from: "${rootDir}/radar/findbugs.gradle"
+apply from: "${rootDir}/radar/pmd.gradle"
+apply from: "${rootDir}/radar/checkstyle.gradle"
